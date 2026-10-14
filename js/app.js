@@ -26,6 +26,7 @@
     session: null, yo: null,
     perfiles: [], categorias: [], tareas: [], eventos: [], alertas: [],
     filtros: { q: "", estado: "", responsable: "", categoria: "", prioridad: "", venc: "" },
+    orden: (() => { try { return localStorage.getItem("orden") || "nuevas"; } catch { return "nuevas"; } })(),
   };
 
   // ---------- Utilidades ----------
@@ -327,6 +328,10 @@
         <select id="f-categoria">${opts(S.categorias.map((c) => [c.id, c.name]), F.categoria, "Todas las categorías")}</select>
         <select id="f-prioridad">${opts(PRIORIDADES, F.prioridad, "Todas las prioridades")}</select>
         ${tipo === "realizadas" ? "" : `<select id="f-venc">${opts([["vencida", "Vencidas"], ["proxima", "Próximas a vencer"], ["sin", "Sin fecha límite"]], F.venc, "Cualquier vencimiento")}</select>`}
+        ${tipo === "realizadas" ? "" : `<select id="f-orden" title="Orden">
+          <option value="nuevas" ${S.orden === "nuevas" ? "selected" : ""}>Orden: más nuevas primero</option>
+          <option value="urgencia" ${S.orden === "urgencia" ? "selected" : ""}>Orden: por urgencia</option>
+        </select>`}
         ${Object.values(F).some(Boolean) ? '<button class="btn sm" id="f-limpiar">Limpiar filtros</button>' : ""}
       </div>
       <div class="lista" id="lista"></div>`;
@@ -343,12 +348,18 @@
       if (F.venc === "sin") ts = ts.filter((t) => !t.due_date);
       else if (F.venc) ts = ts.filter((t) => vencimiento(t) === F.venc);
       if (tipo === "realizadas") ts.sort((a, b) => (b.completed_at || "").localeCompare(a.completed_at || ""));
-      else ts.sort(ordenAbiertas);
+      else if (S.orden === "urgencia") ts.sort(ordenAbiertas);
+      else ts.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
       pintarLista($("#lista"), ts, tipo === "mias" ? "No tenés tareas abiertas asignadas." : "No hay tareas con estos filtros.");
     };
     const enlazar = (id, key) => { const el = $(id); if (el) el.addEventListener(el.type === "search" ? "input" : "change", () => { F[key] = el.value; if (key !== "q") vistaLista(tipo); else pintar(); }); };
     enlazar("#f-q", "q"); enlazar("#f-estado", "estado"); enlazar("#f-responsable", "responsable");
     enlazar("#f-categoria", "categoria"); enlazar("#f-prioridad", "prioridad"); enlazar("#f-venc", "venc");
+    $("#f-orden")?.addEventListener("change", (ev) => {
+      S.orden = ev.target.value;
+      try { localStorage.setItem("orden", S.orden); } catch { /* sin almacenamiento */ }
+      pintar();
+    });
     $("#f-limpiar")?.addEventListener("click", () => { Object.keys(F).forEach((k) => (F[k] = "")); vistaLista(tipo); });
     pintar();
   }
