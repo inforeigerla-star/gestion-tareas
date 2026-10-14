@@ -24,6 +24,11 @@
 - Al abrir una tarea, sus alertas quedan marcadas como leídas. Las alertas leídas se borran solas a los 90 días.
 - **Importante:** no hay correo ni avisos en el celular. Una persona se entera **solo cuando abre la app**.
 
+**Contraseñas:**
+- **¿Olvidaste tu contraseña?** (pantalla de ingreso): llega un correo con un enlace para crear una nueva. Lo envía el servicio gratuito de Supabase, que manda **muy pocos correos por hora** (alrededor de 2) y puede caer en spam.
+- **Nueva contraseña** (Usuarios, solo administrador): genera una contraseña temporal para otra persona. Se muestra una sola vez; pasásela por un medio privado. Funciona aunque el correo falle. La hace una función segura del servidor (`supabase/functions/admin-reset-password`), y la clave de servicio nunca sale de Supabase.
+- **🔑** (arriba, al lado del nombre): cada uno cambia su propia contraseña. Mínimo 8 caracteres.
+
 **Todavía no incluye:** calendario.
 
 **Límites que conviene conocer:**
