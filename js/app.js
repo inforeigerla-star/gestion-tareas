@@ -387,6 +387,7 @@
             ${cat ? `<span class="chip"><span class="dot" style="background:${esc(cat.color)}"></span>${esc(cat.name)}</span>` : ""}
             <span>👤 ${esc(nombre(t.assigned_to))}</span>
             ${venc}
+            ${t.is_private ? '<span class="chip privada" title="Privada: solo creador, responsable y administrador">🔒 Privada</span>' : ""}
             <span>#${t.id}</span>
           </div>
         </div>
@@ -416,6 +417,13 @@
         <label>Responsable<select name="assigned_to">${sel([["", "Sin asignar"], ...miembrosActivos().map((p) => [p.id, p.full_name])], t.assigned_to)}</select></label>
         <label>Prioridad<select name="priority">${sel(PRIORIDADES, t.priority || "normal")}</select></label>
       </div>
+      ${(() => {
+        const puedeCambiar = !t.id || t.created_by === S.yo.id || S.yo.role === "admin";
+        return `<label class="check-privada${puedeCambiar ? "" : " deshabilitado"}">
+          <input type="checkbox" name="is_private" ${t.is_private ? "checked" : ""} ${puedeCambiar ? "" : "disabled"}>
+          <span>🔒 <strong>Privada</strong> — solo la ven quien la creó, el responsable y el administrador${puedeCambiar ? "" : " (solo quien la creó puede cambiar esto)"}</span>
+        </label>`;
+      })()}
       <div class="${completo ? "" : "hidden"}" id="mas-campos">
         <label>Descripción<textarea name="description" placeholder="Detalles, proveedor, cliente, número de factura…">${esc(t.description)}</textarea></label>
         <div class="fila">
@@ -438,6 +446,8 @@
       due_date: f.get("due_date") || null,
     };
     if (f.has("status")) d.status = f.get("status");
+    const priv = form.querySelector("[name=is_private]");
+    if (priv && !priv.disabled) d.is_private = priv.checked;
     return d;
   }
 

@@ -223,3 +223,9 @@ form.arrastrando { outline: 2px dashed var(--accent); outline-offset: 4px; backg
 .login-card .link { display: block; }
 .clave-temporal { font-family: ui-monospace, Consolas, monospace; font-size: 22px; letter-spacing: 2px; background: #f2f4f7; border: 1px dashed #c9d2de; border-radius: 8px; padding: 12px; text-align: center; margin: 8px 0 12px; user-select: all; }
 #btn-mi-clave { font-size: 15px; }
+
+/* Tareas privadas */
+.check-privada { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; color: var(--text); background: #f9fafb; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.check-privada input { width: auto; margin: 2px 0 0; }
+.check-privada.deshabilitado { cursor: default; opacity: .75; }
+.chip.privada { background: #ede9fe; color: #5b21b6; font-weight: 600; }
