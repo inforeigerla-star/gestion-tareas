@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gestión de Tareas</title>
+  <meta name="theme-color" content="#1f6feb">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="img/favicon-32.png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tareas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <!-- Pantalla de acceso -->
+  <section id="pantalla-login" class="login hidden">
+    <div class="login-card">
+      <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
+      <h1 id="login-titulo">Ingresar</h1>
+      <form id="form-login">
+        <label id="campo-nombre" class="hidden">Nombre y apellido
+          <input name="nombre" autocomplete="name">
+        </label>
+        <label>Correo electrónico
+          <input name="email" type="email" required autocomplete="email">
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" required minlength="6" autocomplete="current-password">
+        </label>
+        <button class="btn primary full" type="submit" id="btn-login">Ingresar</button>
+      </form>
+      <p class="login-msg" id="login-msg"></p>
+      <button class="link" id="toggle-registro">¿No tenés cuenta? Registrate</button>
+    </div>
+  </section>
+
+  <!-- Cuenta pendiente de aprobación -->
+  <section id="pantalla-pendiente" class="login hidden">
+    <div class="login-card">
+      <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
+      <h1>Cuenta pendiente</h1>
+      <p>Tu cuenta fue creada. Un administrador tiene que activarla antes de que puedas ver las tareas del equipo.</p>
+      <button class="btn full" id="btn-recargar-pend">Ya me activaron, reintentar</button>
+      <button class="link" data-accion="salir">Cerrar sesión</button>
+    </div>
+  </section>
+
+  <!-- Aplicación -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menú">☰</button>
+      <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
+      <div class="user-box">
+        <a href="#/alertas" class="campana" title="Alertas" aria-label="Alertas">🔔<span class="badge danger" id="badge-alertas"></span></a>
+        <span id="user-name"></span><button class="link" data-accion="salir">Salir</button>
+      </div>
+    </header>
+    <nav class="sidebar" id="sidebar">
+      <a href="#/inicio" data-ruta="inicio">Inicio</a>
+      <a href="#/todas" data-ruta="todas">Todas las tareas</a>
+      <a href="#/mias" data-ruta="mias">Mis tareas <span class="badge" id="badge-mias"></span></a>
+      <a href="#/nueva" data-ruta="nueva" class="nav-cta">+ Crear tarea</a>
+      <a href="#/realizadas" data-ruta="realizadas">Realizadas</a>
+      <a href="#/alertas" data-ruta="alertas">Alertas <span class="badge danger" id="badge-alertas-menu"></span></a>
+      <div class="nav-sep admin-only hidden">Administración</div>
+      <a href="#/usuarios" data-ruta="usuarios" class="admin-only hidden">Usuarios <span class="badge warn" id="badge-pend"></span></a>
+      <a href="#/categorias" data-ruta="categorias" class="admin-only hidden">Categorías</a>
+    </nav>
+    <main class="contenido" id="contenido"></main>
+  </div>
+
+  <!-- Ventana de detalle / edición -->
+  <dialog id="modal" class="modal"></dialog>
+  <div id="toast" class="toast"></div>
+
+  <script src="js/vendor/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

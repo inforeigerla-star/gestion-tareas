@@ -1,0 +1,3 @@
+# Documentación interna: no se publica (el "!" fuerza la regla aunque el archivo exista)
+/LEEME.md     /404.html  404!
+/supabase/*   /404.html  404!
