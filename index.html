@@ -34,6 +34,36 @@
       </form>
       <p class="login-msg" id="login-msg"></p>
       <button class="link" id="toggle-registro">¿No tenés cuenta? Registrate</button>
+      <button class="link" id="btn-olvide">¿Olvidaste tu contraseña?</button>
+    </div>
+  </section>
+
+  <!-- Recuperar contraseña: pedir el correo -->
+  <section id="pantalla-olvide" class="login hidden">
+    <div class="login-card">
+      <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
+      <h1>Recuperar contraseña</h1>
+      <p class="meta">Escribí tu correo y te enviamos un enlace para crear una contraseña nueva.</p>
+      <form id="form-olvide">
+        <label>Correo electrónico<input name="email" type="email" required autocomplete="email"></label>
+        <button class="btn primary full" type="submit">Enviar enlace</button>
+      </form>
+      <p class="login-msg" id="olvide-msg"></p>
+      <button class="link" id="volver-login">← Volver a ingresar</button>
+    </div>
+  </section>
+
+  <!-- Recuperar contraseña: elegir la nueva (se llega desde el enlace del correo) -->
+  <section id="pantalla-nueva-clave" class="login hidden">
+    <div class="login-card">
+      <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
+      <h1>Nueva contraseña</h1>
+      <form id="form-nueva-clave">
+        <label>Nueva contraseña<input name="p1" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Repetila<input name="p2" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button class="btn primary full" type="submit">Guardar y entrar</button>
+      </form>
+      <p class="login-msg" id="nueva-clave-msg"></p>
     </div>
   </section>
 
@@ -55,7 +85,7 @@
       <div class="brand"><span class="brand-dot"></span> Gestión de Tareas</div>
       <div class="user-box">
         <a href="#/alertas" class="campana" title="Alertas" aria-label="Alertas">🔔<span class="badge danger" id="badge-alertas"></span></a>
-        <span id="user-name"></span><button class="link" data-accion="salir">Salir</button>
+        <span id="user-name"></span><button class="link" id="btn-mi-clave" title="Cambiar mi contraseña">🔑</button><button class="link" data-accion="salir">Salir</button>
       </div>
     </header>
     <nav class="sidebar" id="sidebar">

@@ -218,3 +218,8 @@ form.arrastrando { outline: 2px dashed var(--accent); outline-offset: 4px; backg
 .alerta.k-por_vencer:not(.leida) { border-left-color: var(--pr-alta); }
 .alerta .punto { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
 .ajustes { margin-top: 20px; max-width: 720px; }
+
+/* Contraseñas */
+.login-card .link { display: block; }
+.clave-temporal { font-family: ui-monospace, Consolas, monospace; font-size: 22px; letter-spacing: 2px; background: #f2f4f7; border: 1px dashed #c9d2de; border-radius: 8px; padding: 12px; text-align: center; margin: 8px 0 12px; user-select: all; }
+#btn-mi-clave { font-size: 15px; }

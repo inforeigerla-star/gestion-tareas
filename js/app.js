@@ -2,6 +2,11 @@
 (() => {
   "use strict";
 
+  // Si se llega desde el enlace de "olvidé mi contraseña", se detecta ANTES de que Supabase limpie la dirección.
+  const hashInicial = location.hash;
+  let recuperando = /type=recovery/.test(hashInicial);
+  const errorEnlace = /error_code=otp_expired|error=access_denied/.test(hashInicial);
+
   const sb = window.supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_KEY);
 
   // ---------- Constantes ----------
@@ -56,13 +61,16 @@
     if (/already registered/i.test(m)) return "Ese correo ya tiene una cuenta. Probá ingresar.";
     if (/row-level security/i.test(m)) return "No tenés permiso para hacer esto.";
     if (/Failed to fetch/i.test(m)) return "Sin conexión con el servidor. Revisá tu internet.";
+    if (/rate limit|too many/i.test(m)) return "Se alcanzó el límite de correos por hora. Probá más tarde o pedile al administrador una contraseña temporal.";
+    if (/should be different/i.test(m)) return "La contraseña nueva tiene que ser distinta de la anterior.";
+    if (/at least|weak|short/i.test(m)) return "La contraseña es muy corta o débil. Usá al menos 8 caracteres.";
     return m;
   }
 
   // ---------- Acceso ----------
   let modoRegistro = false;
   function mostrar(id) {
-    ["#pantalla-login", "#pantalla-pendiente", "#app"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
+    ["#pantalla-login", "#pantalla-olvide", "#pantalla-nueva-clave", "#pantalla-pendiente", "#app"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
   }
 
   $("#toggle-registro").addEventListener("click", () => {
@@ -104,7 +112,69 @@
   });
   $("#btn-recargar-pend").addEventListener("click", () => iniciarSesion(S.session));
 
+  // ---------- Olvidé mi contraseña ----------
+  $("#btn-olvide").addEventListener("click", () => {
+    $("#form-olvide").email.value = $("#form-login").email.value;
+    $("#olvide-msg").textContent = ""; mostrar("#pantalla-olvide");
+  });
+  $("#volver-login").addEventListener("click", () => mostrar("#pantalla-login"));
+  $("#form-olvide").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const msg = $("#olvide-msg"); msg.className = "login-msg"; msg.textContent = "";
+    const btn = ev.target.querySelector("[type=submit]"); btn.disabled = true;
+    const { error } = await sb.auth.resetPasswordForEmail(ev.target.email.value.trim(), {
+      redirectTo: location.origin + location.pathname,
+    });
+    btn.disabled = false;
+    if (error) { msg.textContent = errorMsg(error); return; }
+    msg.className = "login-msg ok";
+    msg.textContent = "Si el correo está registrado, en unos minutos te llega un enlace. Revisá también la carpeta de spam.";
+  });
+  $("#form-nueva-clave").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const f = ev.target, msg = $("#nueva-clave-msg");
+    msg.className = "login-msg";
+    if (f.p1.value !== f.p2.value) { msg.textContent = "Las contraseñas no coinciden."; return; }
+    const { error } = await sb.auth.updateUser({ password: f.p1.value });
+    if (error) { msg.textContent = errorMsg(error); return; }
+    recuperando = false; f.reset();
+    history.replaceState(null, "", location.pathname + "#/inicio");
+    const { data } = await sb.auth.getSession();
+    toast("Contraseña actualizada");
+    if (data.session) iniciarSesion(data.session); else mostrar("#pantalla-login");
+  });
+  if (errorEnlace) {
+    history.replaceState(null, "", location.pathname);
+    setTimeout(() => { mostrar("#pantalla-olvide"); $("#olvide-msg").textContent = "El enlace venció o ya se usó. Pedí uno nuevo."; }, 0);
+  }
+
+  // ---------- Cambiar mi contraseña (estando adentro) ----------
+  $("#btn-mi-clave").addEventListener("click", () => {
+    const m = $("#modal");
+    S.tareaAbierta = null;
+    m.innerHTML = `
+      <div class="modal-head"><strong>Cambiar mi contraseña</strong><button class="icon-btn" id="m-cerrar" aria-label="Cerrar">✕</button></div>
+      <form class="modal-body" id="form-mi-clave" style="max-width:420px">
+        <label>Nueva contraseña<input name="p1" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Repetila<input name="p2" type="password" required minlength="8" autocomplete="new-password"></label>
+        <div class="acciones"><button class="btn primary" type="submit">Guardar</button></div>
+      </form>`;
+    m.showModal();
+    $("#m-cerrar").onclick = () => m.close();
+    $("#form-mi-clave").addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const f = ev.target;
+      if (f.p1.value !== f.p2.value) { toast("Las contraseñas no coinciden", true); return; }
+      const { error } = await sb.auth.updateUser({ password: f.p1.value });
+      if (error) { toast(errorMsg(error), true); return; }
+      m.close(); toast("Contraseña cambiada");
+    });
+  });
+
   sb.auth.onAuthStateChange((evento, session) => {
+    if (evento === "PASSWORD_RECOVERY" || (recuperando && session)) {
+      recuperando = true; S.session = session; mostrar("#pantalla-nueva-clave"); return;
+    }
     if (evento === "SIGNED_OUT" || !session) { S.session = null; S.yo = null; detenerTiempoReal(); mostrar("#pantalla-login"); return; }
     if (evento === "SIGNED_IN" || evento === "INITIAL_SESSION") {
       if (S.session?.user?.id === session.user.id && S.yo) { S.session = session; return; }
@@ -748,15 +818,43 @@
         <td>${esc(p.email)}</td>
         <td><select class="u-rol" ${p.id === S.yo.id ? "disabled" : ""}><option value="member" ${p.role === "member" ? "selected" : ""}>Integrante</option><option value="admin" ${p.role === "admin" ? "selected" : ""}>Administrador</option></select></td>
         <td>${p.id === S.yo.id ? "Activo (vos)" : `<label style="margin:0;display:flex;gap:6px;align-items:center;color:var(--text)"><input type="checkbox" class="u-activo" style="width:auto" ${p.active ? "checked" : ""}> ${p.active ? "Activo" : "<strong style='color:#b54708'>Pendiente</strong>"}</label>`}</td>
-        <td><button class="btn sm u-guardar">Guardar</button></td>
+        <td style="white-space:nowrap"><button class="btn sm u-guardar">Guardar</button>
+          ${p.id === S.yo.id ? "" : '<button class="btn sm u-clave" title="Generar una contraseña temporal">Nueva contraseña</button>'}</td>
       </tr>`).join("");
     $("#contenido").innerHTML = `
       <h1>Usuarios</h1>
+      <p class="meta" style="margin-bottom:6px"><strong>Si alguien olvidó su contraseña:</strong> puede usar "¿Olvidaste tu contraseña?" en la pantalla de ingreso, o vos le generás una temporal con "Nueva contraseña" y se la pasás por WhatsApp. Después la cambia con el ícono 🔑 de arriba.</p>
       <p class="meta" style="margin-bottom:14px">Cada integrante se registra desde la pantalla de ingreso con "Registrate". Después aparece acá como <strong>Pendiente</strong>: tildá "Activo" y guardá para darle acceso. Para quitarle el acceso a alguien, destildá "Activo".</p>
       <div class="tabla-scroll"><table>
         <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Acceso</th><th></th></tr></thead>
         <tbody>${filas}</tbody>
       </table></div>`;
+    document.querySelectorAll("tr[data-id] .u-clave").forEach((b) => b.addEventListener("click", async () => {
+      const tr = b.closest("tr"), p = perfil(tr.dataset.id);
+      if (!confirm(`¿Generar una contraseña nueva para ${p.full_name}? La actual deja de funcionar.`)) return;
+      b.disabled = true;
+      const { data, error } = await sb.functions.invoke("admin-reset-password", { body: { user_id: p.id } });
+      b.disabled = false;
+      if (error || !data?.password) {
+        let det = data?.error;
+        try { det = det || (await error.context.json()).error; } catch { /* sin detalle */ }
+        toast(det || errorMsg(error), true); return;
+      }
+      const m = $("#modal"); S.tareaAbierta = null;
+      m.innerHTML = `
+        <div class="modal-head"><strong>Contraseña temporal</strong><button class="icon-btn" id="m-cerrar" aria-label="Cerrar">✕</button></div>
+        <div class="modal-body" style="max-width:460px">
+          <p>Nueva contraseña para <strong>${esc(p.full_name)}</strong> (${esc(p.email)}):</p>
+          <div class="clave-temporal" id="clave-temp">${esc(data.password)}</div>
+          <div class="acciones" style="justify-content:flex-start"><button class="btn primary sm" id="copiar-clave">Copiar</button></div>
+          <p class="meta">Pasásela por un medio privado. Al entrar, conviene que la cambie con el ícono 🔑. Esta contraseña no se vuelve a mostrar.</p>
+        </div>`;
+      m.showModal();
+      $("#m-cerrar").onclick = () => m.close();
+      $("#copiar-clave").onclick = async () => {
+        try { await navigator.clipboard.writeText(data.password); toast("Copiada"); } catch { toast("Seleccioná y copiá a mano", true); }
+      };
+    }));
     document.querySelectorAll("tr[data-id]").forEach((tr) => {
       tr.querySelector(".u-guardar").addEventListener("click", async () => {
         const id = tr.dataset.id;
