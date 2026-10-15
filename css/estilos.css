@@ -64,7 +64,7 @@ label > input, label > select, label > textarea { margin-top: 4px; color: var(--
 .badge { background: var(--accent); color: #fff; border-radius: 99px; font-size: 11px; padding: 1px 7px; font-weight: 600; }
 .badge:empty { display: none; }
 .badge.warn { background: var(--pr-alta); }
-.contenido { margin-left: 220px; padding: 24px; max-width: 1200px; }
+.contenido { margin-left: 220px; padding: 24px 32px; }
 
 /* Panel inicio */
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }

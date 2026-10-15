@@ -291,16 +291,8 @@
         ${stat("proximas", proximas.length, "Próximas a vencer", "#/todas?venc=proxima")}
         ${stat("realizado", realizadasRecientes.length, "Realizadas (7 días)", "#/realizadas")}
       </div>
-      <div class="grid2">
-        <div>
-          <h2>Requieren atención</h2>
-          <div class="lista" id="lista-atencion"></div>
-        </div>
-        <div class="card">
-          <h2>Últimas actualizaciones del equipo</h2>
-          <ul class="historial">${S.eventos.map(htmlEventoGlobal).join("") || '<li class="cuando">Todavía no hay actividad.</li>'}</ul>
-        </div>
-      </div>`;
+      <h2>Requieren atención</h2>
+      <div class="lista" id="lista-atencion"></div>`;
     const atencion = [...vencidas, ...proximas, ...abiertas.filter((t) => t.priority === "urgente" && !vencimiento(t)?.match(/vencida|proxima/))]
       .filter((t, i, arr) => arr.indexOf(t) === i).slice(0, 10);
     pintarLista($("#lista-atencion"), atencion, "Nada urgente ni vencido. 👌");
