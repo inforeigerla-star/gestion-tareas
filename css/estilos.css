@@ -229,3 +229,13 @@ form.arrastrando { outline: 2px dashed var(--accent); outline-offset: 4px; backg
 .check-privada input { width: auto; margin: 2px 0 0; }
 .check-privada.deshabilitado { cursor: default; opacity: .75; }
 .chip.privada { background: #ede9fe; color: #5b21b6; font-weight: 600; }
+
+/* Vista por categoría */
+.grupo-cat { margin-bottom: 14px; }
+.grupo-cab { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 6px 2px; cursor: pointer; font-size: 15px; font-weight: 700; color: var(--text); text-align: left; }
+.grupo-cab .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.grupo-cab .grupo-n { background: #e4e7ec; color: var(--muted); border-radius: 99px; font-size: 12px; padding: 1px 8px; font-weight: 600; }
+.grupo-cab .flecha { color: var(--muted); transition: transform .15s; width: 14px; }
+.grupo-cat.plegada .flecha { transform: rotate(-90deg); }
+.grupo-cat.plegada .grupo-lista { display: none; }
+.grupo-lista { margin-top: 6px; }
