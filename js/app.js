@@ -371,12 +371,12 @@
 
   // Agrupa las tareas (ya filtradas y ordenadas) por categoría, en el orden de las categorías.
   function pintarPorCategoria(cont, tareas) {
-    const grupos = [...S.categorias.map((c) => ({ key: String(c.id), nombre: c.name, color: c.color })),
-      { key: "sin", nombre: "Sin categoría", color: "#94a3b8" }]
+    const grupos = [{ key: "sin", nombre: "Sin categoría", color: "#94a3b8" },
+      ...S.categorias.map((c) => ({ key: String(c.id), nombre: c.name, color: c.color }))]
       .map((g) => ({ ...g, tareas: tareas.filter((t) => (t.category_id ? String(t.category_id) : "sin") === g.key) }))
       .filter((g) => g.tareas.length);
     cont.innerHTML = grupos.map((g) => {
-      const plegada = S.plegadas.has(g.key);
+      const plegada = S.plegadas.has(g.key) && !g.tareas.some((t) => t.id === S.resaltar);
       const vencidas = g.tareas.filter((t) => vencimiento(t) === "vencida").length;
       return `
         <section class="grupo-cat ${plegada ? "plegada" : ""}" data-key="${esc(g.key)}">
@@ -417,9 +417,44 @@
     cont.innerHTML = tareas.map(htmlTarea).join("");
     cont.querySelectorAll(".tarea").forEach((el) => {
       const id = Number(el.dataset.id);
-      el.addEventListener("click", (ev) => { if (!ev.target.closest(".estado-select")) abrirTarea(id); });
+      el.addEventListener("click", (ev) => { if (!ev.target.closest(".estado-select, .editar-titulo, .input-titulo")) abrirTarea(id); });
       el.querySelector(".estado-select").addEventListener("change", (ev) => cambiarEstado(id, ev.target.value));
+      el.querySelector(".editar-titulo").addEventListener("click", () => editarTituloEnLinea(el, id));
+      if (id === S.resaltar) {
+        el.classList.add("resaltada");
+        setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+        setTimeout(() => { el.classList.remove("resaltada"); if (S.resaltar === id) S.resaltar = null; }, 3000);
+      }
     });
+  }
+
+  function editarTituloEnLinea(el, id) {
+    const t = S.tareas.find((x) => x.id === id);
+    const span = el.querySelector(".titulo");
+    if (!t || !span) return;
+    const input = document.createElement("input");
+    input.className = "input-titulo"; input.value = t.title; input.maxLength = 200;
+    span.replaceWith(input);
+    el.querySelector(".editar-titulo").hidden = true;
+    input.focus(); input.select();
+    let terminado = false;
+    const cerrar = async (guardar) => {
+      if (terminado) return; terminado = true;
+      const nuevo = input.value.trim();
+      if (guardar && nuevo && nuevo !== t.title) {
+        const { error } = await sb.from("tasks").update({ title: nuevo }).eq("id", id);
+        if (error) { toast(errorMsg(error), true); terminado = false; input.focus(); return; }
+        t.title = nuevo; toast("Título actualizado");
+      } else if (guardar && !nuevo) toast("El título no puede quedar vacío", true);
+      const s2 = document.createElement("span"); s2.className = "titulo"; s2.textContent = t.title;
+      input.replaceWith(s2);
+      el.querySelector(".editar-titulo").hidden = false;
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); cerrar(true); }
+      if (ev.key === "Escape") { ev.preventDefault(); cerrar(false); }
+    });
+    input.addEventListener("blur", () => cerrar(true));
   }
 
   function htmlTarea(t) {
@@ -430,7 +465,7 @@
       <div class="tarea prio-${t.priority} ${t.status}" data-id="${t.id}">
         <div class="prio-bar" title="Prioridad ${nombrePrio[t.priority]}"></div>
         <div>
-          <div class="titulo">${esc(t.title)}</div>
+          <div class="titulo-fila-tarea"><span class="titulo">${esc(t.title)}</span><button class="link editar-titulo" title="Editar título" aria-label="Editar título">✏️</button></div>
           <div class="meta">
             ${t.priority === "alta" || t.priority === "urgente" ? `<span class="chip prio prio-${t.priority}">${nombrePrio[t.priority]}</span>` : ""}
             ${cat ? `<span class="chip"><span class="dot" style="background:${esc(cat.color)}"></span>${esc(cat.name)}</span>` : ""}
@@ -465,6 +500,7 @@
       <div class="fila">
         <label>Responsable<select name="assigned_to">${sel([["", "Sin asignar"], ...miembrosActivos().map((p) => [p.id, p.full_name])], t.assigned_to)}</select></label>
         <label>Prioridad<select name="priority">${sel(PRIORIDADES, t.priority || "normal")}</select></label>
+        <label>Categoría<select name="category_id">${sel([["", "Sin categoría"], ...cats], t.category_id)}</select></label>
       </div>
       ${(() => {
         const puedeCambiar = !t.id || t.created_by === S.yo.id || S.yo.role === "admin";
@@ -476,12 +512,11 @@
       <div class="${completo ? "" : "hidden"}" id="mas-campos">
         <label>Descripción<textarea name="description" placeholder="Detalles, proveedor, cliente, número de factura…">${esc(t.description)}</textarea></label>
         <div class="fila">
-          <label>Categoría<select name="category_id">${sel([["", "Sin categoría"], ...cats], t.category_id)}</select></label>
           <label>Fecha límite<input type="date" name="due_date" value="${esc(t.due_date || "")}"></label>
           ${t.id ? `<label>Estado<select name="status">${sel(ESTADOS, t.status)}</select></label>` : ""}
         </div>
       </div>
-      ${completo ? "" : '<button type="button" class="link mas-opciones" id="btn-mas">+ Descripción, categoría y fecha límite</button>'}`;
+      ${completo ? "" : '<button type="button" class="link mas-opciones" id="btn-mas">+ Descripción y fecha límite</button>'}`;
   }
 
   function datosForm(form) {
@@ -527,6 +562,7 @@
       if (fallidos.length) toast(`La tarea se creó, pero no se pudieron subir: ${fallidos.join(", ")}`, true);
       else toast("Tarea creada");
       await cargarTodo();
+      S.resaltar = data.id;
       location.hash = data.assigned_to === S.yo.id ? "#/mias" : "#/todas";
     });
   }

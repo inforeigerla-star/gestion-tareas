@@ -239,3 +239,12 @@ form.arrastrando { outline: 2px dashed var(--accent); outline-offset: 4px; backg
 .grupo-cat.plegada .flecha { transform: rotate(-90deg); }
 .grupo-cat.plegada .grupo-lista { display: none; }
 .grupo-lista { margin-top: 6px; }
+
+/* Título editable y tarea recién creada */
+.titulo-fila-tarea { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.titulo-fila-tarea .titulo { overflow-wrap: anywhere; }
+.editar-titulo { padding: 0 4px; font-size: 13px; opacity: 0; transition: opacity .15s; }
+.tarea:hover .editar-titulo, .editar-titulo:focus { opacity: .8; }
+@media (hover: none) { .editar-titulo { opacity: .6; } }
+.input-titulo { font-weight: 600; padding: 4px 8px; }
+.tarea.resaltada { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); transition: box-shadow .3s; }
