@@ -27,7 +27,7 @@
     perfiles: [], categorias: [], tareas: [], eventos: [], alertas: [],
     filtros: { q: "", estado: "", responsable: "", categoria: "", prioridad: "", venc: "" },
     orden: (() => { try { return localStorage.getItem("orden") || "nuevas"; } catch { return "nuevas"; } })(),
-    agrupar: (() => { try { return localStorage.getItem("agrupar") !== "no"; } catch { return true; } })(),
+    vista: (() => { try { return localStorage.getItem("vista") || "prioridad"; } catch { return "prioridad"; } })(),
     plegadas: (() => { try { return new Set(JSON.parse(localStorage.getItem("plegadas") || "[]")); } catch { return new Set(); } })(),
   };
 
@@ -333,8 +333,9 @@
           <option value="urgencia" ${S.orden === "urgencia" ? "selected" : ""}>Orden: por urgencia</option>
         </select>`}
         ${tipo === "todas" ? `<select id="f-agrupar" title="Vista">
-          <option value="si" ${S.agrupar ? "selected" : ""}>Vista: por categoría</option>
-          <option value="no" ${S.agrupar ? "" : "selected"}>Vista: lista simple</option>
+          <option value="prioridad" ${S.vista === "prioridad" ? "selected" : ""}>Vista: por prioridad</option>
+          <option value="categoria" ${S.vista === "categoria" ? "selected" : ""}>Vista: por categoría</option>
+          <option value="lista" ${S.vista === "lista" ? "selected" : ""}>Vista: lista simple</option>
         </select>` : ""}
         ${Object.values(F).some(Boolean) ? '<button class="btn sm" id="f-limpiar">Limpiar filtros</button>' : ""}
       </div>
@@ -355,15 +356,15 @@
       else if (S.orden === "urgencia") ts.sort(ordenAbiertas);
       else ts.sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
       const vacio = tipo === "mias" ? "No tenés tareas abiertas asignadas." : "No hay tareas con estos filtros.";
-      if (tipo === "todas" && S.agrupar && ts.length) pintarPorCategoria($("#lista"), ts);
+      if (tipo === "todas" && S.vista !== "lista" && ts.length) pintarAgrupado($("#lista"), ts, S.vista);
       else pintarLista($("#lista"), ts, vacio);
     };
     const enlazar = (id, key) => { const el = $(id); if (el) el.addEventListener(el.type === "search" ? "input" : "change", () => { F[key] = el.value; if (key !== "q") vistaLista(tipo); else pintar(); }); };
     enlazar("#f-q", "q"); enlazar("#f-estado", "estado"); enlazar("#f-responsable", "responsable");
     enlazar("#f-categoria", "categoria"); enlazar("#f-prioridad", "prioridad"); enlazar("#f-venc", "venc");
     $("#f-agrupar")?.addEventListener("change", (ev) => {
-      S.agrupar = ev.target.value === "si";
-      try { localStorage.setItem("agrupar", S.agrupar ? "si" : "no"); } catch { /* sin almacenamiento */ }
+      S.vista = ev.target.value;
+      try { localStorage.setItem("vista", S.vista); } catch { /* sin almacenamiento */ }
       pintar();
     });
     $("#f-orden")?.addEventListener("change", (ev) => {
@@ -375,12 +376,14 @@
     pintar();
   }
 
-  // Agrupa las tareas (ya filtradas y ordenadas) por categoría, en el orden de las categorías.
-  function pintarPorCategoria(cont, tareas) {
-    const grupos = [{ key: "sin", nombre: "Sin categoría", color: "#94a3b8" },
-      ...S.categorias.map((c) => ({ key: String(c.id), nombre: c.name, color: c.color }))]
-      .map((g) => ({ ...g, tareas: tareas.filter((t) => (t.category_id ? String(t.category_id) : "sin") === g.key) }))
-      .filter((g) => g.tareas.length);
+  // Agrupa las tareas (ya filtradas y ordenadas) por prioridad (Urgente → Baja) o por categoría.
+  const COLOR_PRIO = { urgente: "#d92d20", alta: "#f79009", normal: "#1f6feb", baja: "#98a2b3" };
+  function pintarAgrupado(cont, tareas, modo) {
+    const base = modo === "prioridad"
+      ? ["urgente", "alta", "normal", "baja"].map((pr) => ({ key: "p:" + pr, nombre: nombrePrio[pr], color: COLOR_PRIO[pr], de: (t) => t.priority === pr }))
+      : [{ key: "sin", nombre: "Sin categoría", color: "#94a3b8", de: (t) => !t.category_id },
+         ...S.categorias.map((c) => ({ key: String(c.id), nombre: c.name, color: c.color, de: (t) => t.category_id === c.id }))];
+    const grupos = base.map((g) => ({ ...g, tareas: tareas.filter(g.de) })).filter((g) => g.tareas.length);
     cont.innerHTML = grupos.map((g) => {
       const plegada = S.plegadas.has(g.key) && !g.tareas.some((t) => t.id === S.resaltar);
       const vencidas = g.tareas.filter((t) => vencimiento(t) === "vencida").length;
