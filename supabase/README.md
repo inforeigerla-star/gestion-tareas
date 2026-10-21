@@ -15,3 +15,4 @@ No hace falta ejecutar nada de esta carpeta. Es documentación.
 8. Función del servidor `admin-reset-password` (Supabase → Edge Functions): genera una contraseña temporal; solo la puede usar un administrador activo.
 9. Configuración de Authentication → URL Configuration → Site URL = https://inforeigerla-star.github.io/gestion-tareas/ (adónde vuelve el enlace de recuperación).
 10. `tareas_privadas` y `privacidad_solo_creador_o_admin`: opción "Privada" por tarea (la ven creador, responsable y administrador; comentarios, archivos e historial siguen la misma regla).
+11. `hora_fecha_limite`: hora opcional en la fecha límite; las alertas la muestran y "vencida" se calcula con la hora. La revisión automática pasa a correr cada 15 minutos.

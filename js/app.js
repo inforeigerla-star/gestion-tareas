@@ -37,6 +37,8 @@
   const hoyISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
   const sumarDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const fFecha = (iso) => iso ? new Date(iso + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+  const horaActual = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  const fHora = (h) => (h ? " " + h.slice(0, 5) + " h" : "");
   const fFechaHora = (ts) => ts ? new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
   const perfil = (id) => S.perfiles.find((p) => p.id === id);
   const nombre = (id) => (id ? (perfil(id)?.full_name || "Usuario") : "Sin asignar");
@@ -47,6 +49,7 @@
     if (!t.due_date || t.status === "realizado") return null;
     const hoy = hoyISO();
     if (t.due_date < hoy) return "vencida";
+    if (t.due_date === hoy && t.due_time && t.due_time.slice(0, 5) <= horaActual()) return "vencida";
     if (t.due_date <= sumarDias(hoy, DIAS_PROXIMO)) return "proxima";
     return "ok";
   }
@@ -231,6 +234,9 @@
       .subscribe();
   }
   function detenerTiempoReal() { if (canal) { sb.removeChannel(canal); canal = null; } }
+  // Cada 5 minutos se recargan los datos: así una tarea pasa a "vencida" a su hora
+  // aunque nadie toque nada (y se recupera cualquier cambio en vivo que se haya perdido).
+  setInterval(() => { if (S.yo?.active && document.visibilityState === "visible") programarRecarga(); }, 5 * 60 * 1000);
   function programarRecarga() {
     clearTimeout(recargaTimer);
     recargaTimer = setTimeout(async () => {
@@ -407,7 +413,8 @@
     const va = { vencida: 0, proxima: 1 }[vencimiento(a)] ?? 2, vb = { vencida: 0, proxima: 1 }[vencimiento(b)] ?? 2;
     if (va !== vb) return va - vb;
     if (pesoPrio[a.priority] !== pesoPrio[b.priority]) return pesoPrio[a.priority] - pesoPrio[b.priority];
-    if (a.due_date && b.due_date && a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date);
+    if (a.due_date && b.due_date && (a.due_date !== b.due_date || (a.due_time || "") !== (b.due_time || "")))
+      return (a.due_date + (a.due_time || "24")).localeCompare(b.due_date + (b.due_time || "24"));
     if (!!a.due_date !== !!b.due_date) return a.due_date ? -1 : 1;
     return b.created_at.localeCompare(a.created_at);
   }
@@ -460,7 +467,7 @@
   function htmlTarea(t) {
     const cat = categoria(t.category_id);
     const v = vencimiento(t);
-    const venc = t.due_date ? `<span class="venc ${v || ""}">${v === "vencida" ? "Vencida · " : v === "proxima" ? "Vence pronto · " : "Vence "}${fFecha(t.due_date)}</span>` : "";
+    const venc = t.due_date ? `<span class="venc ${v || ""}">${v === "vencida" ? "Vencida · " : v === "proxima" ? "Vence pronto · " : "Vence "}${fFecha(t.due_date)}${fHora(t.due_time)}</span>` : "";
     return `
       <div class="tarea prio-${t.priority} ${t.status}" data-id="${t.id}">
         <div class="prio-bar" title="Prioridad ${nombrePrio[t.priority]}"></div>
@@ -513,6 +520,7 @@
         <label>Descripción<textarea name="description" placeholder="Detalles, proveedor, cliente, número de factura…">${esc(t.description)}</textarea></label>
         <div class="fila">
           <label>Fecha límite<input type="date" name="due_date" value="${esc(t.due_date || "")}"></label>
+          <label>Hora (opcional)<input type="time" name="due_time" value="${esc((t.due_time || "").slice(0, 5))}"></label>
           ${t.id ? `<label>Estado<select name="status">${sel(ESTADOS, t.status)}</select></label>` : ""}
         </div>
       </div>
@@ -528,6 +536,7 @@
       description: (f.get("description") || "").trim(),
       category_id: f.get("category_id") ? Number(f.get("category_id")) : null,
       due_date: f.get("due_date") || null,
+      due_time: (f.get("due_date") && f.get("due_time")) || null,
     };
     if (f.has("status")) d.status = f.get("status");
     const priv = form.querySelector("[name=is_private]");
