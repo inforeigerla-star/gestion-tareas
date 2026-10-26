@@ -739,7 +739,7 @@
               </div>
             </form>
             <div id="m-archivos"></div>
-            <h2 style="margin-top:16px">Actividad</h2>
+            <div class="titulo-actividad"><h2>Comentarios</h2><button class="link" id="m-ver-cambios"></button></div>
             <ul class="historial" id="m-actividad"><li class="cuando">Cargando…</li></ul>
           </div>
         </div>
@@ -831,11 +831,18 @@
           ${adjuntos.filter((a) => a.comment_id === c.id).map((a) => htmlAdj(a, true)).join("")}
           <div class="cuando">${fFechaHora(c.created_at)}</div>
         </li>` })),
-      ...ev.data.filter((e) => e.kind !== "comentario" && e.kind !== "adjunto").map((e) => ({ when: e.created_at, id: e.id, html: `<li>${textoEvento(e)}<div class="cuando">${fFechaHora(e.created_at)}</div></li>` })),
+      // Los cambios (fecha, estado, asignación…) se ocultan salvo que se pidan
+      ...(S.verCambios ? ev.data.filter((e) => e.kind !== "comentario" && e.kind !== "adjunto").map((e) => ({ when: e.created_at, id: e.id, html: `<li class="cambio">${textoEvento(e)}<div class="cuando">${fFechaHora(e.created_at)}</div></li>` })) : []),
       // Archivos subidos sin comentario (por ejemplo, al crear la tarea)
       ...adjuntos.filter((a) => !a.comment_id).map((a) => ({ when: a.created_at, html: `<li><strong>${esc(nombre(a.uploaded_by))}</strong> adjuntó un archivo${htmlAdj(a, true)}<div class="cuando">${fFechaHora(a.created_at)}</div></li>` })),
     ].sort((a, b) => b.when.localeCompare(a.when) || (b.id || 0) - (a.id || 0));
-    ul.innerHTML = items.map((i) => i.html).join("") || '<li class="cuando">Sin actividad.</li>';
+    ul.innerHTML = items.map((i) => i.html).join("") || `<li class="cuando">${S.verCambios ? "Sin actividad." : "Todavía no hay comentarios."}</li>`;
+    const nCambios = ev.data.filter((e) => e.kind !== "comentario" && e.kind !== "adjunto").length;
+    const btnCambios = $("#m-ver-cambios");
+    if (btnCambios) {
+      btnCambios.textContent = nCambios ? (S.verCambios ? "Ocultar cambios" : `Mostrar cambios (${nCambios})`) : "";
+      btnCambios.onclick = () => { S.verCambios = !S.verCambios; refrescarActividad(id); };
+    }
 
     const porId = (aid) => adjuntos.find((a) => a.id === Number(aid));
     $("#modal").querySelectorAll(".a-bajar").forEach((b) => (b.onclick = () => descargarAdjunto(porId(b.dataset.id))));
