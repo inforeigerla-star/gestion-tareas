@@ -864,7 +864,12 @@
   }
 
   // ---------- Alertas ----------
-  const alertaPendiente = (a) => { const t = S.tareas.find((x) => x.id === a.task_id); return !!t && t.status !== "realizado"; };
+  // Se muestran solo las alertas de "venció" cuya tarea sigue abierta y sigue vencida.
+  const alertaPendiente = (a) => {
+    if (a.kind !== "vencida") return false;
+    const t = S.tareas.find((x) => x.id === a.task_id);
+    return !!t && vencimiento(t) === "vencida";
+  };
   const iconoAlerta = { asignada: "👤", comentario: "💬", realizada: "✅", por_vencer: "⏰", vencida: "⚠️" };
 
   async function marcarLeidas(ids) {
@@ -883,7 +888,7 @@
     const sinLeer = visibles.filter((a) => !a.read_at);
     $("#contenido").innerHTML = `
       <div class="titulo-fila">
-        <h1>Alertas</h1>
+        <h1>Alertas${S.verHistorialAlertas ? "" : " · Vencidas"}</h1>
         ${sinLeer.length ? '<button class="btn sm" id="al-todas">Marcar todas como leídas</button>' : ""}
       </div>
       <div class="lista" id="al-lista">
@@ -895,11 +900,11 @@
               <div class="cuando">${fFechaHora(a.created_at)}${a.actor ? " · " + esc(nombre(a.actor)) : ""}</div>
             </div>
             ${a.read_at ? "" : '<span class="punto" title="Sin leer"></span>'}
-          </div>`).join("") || `<div class="vacio">${S.verHistorialAlertas ? "No tenés alertas." : "No tenés nada pendiente. 👌 Te vamos a avisar acá cuando te asignen una tarea, comenten en una tuya o algo esté por vencer."}</div>`}
+          </div>`).join("") || `<div class="vacio">${S.verHistorialAlertas ? "No tenés alertas." : "No tenés tareas vencidas. 👌"}</div>`}
       </div>
       ${ocultas ? `<p class="meta" style="margin-top:10px"><button class="link" id="al-historial">${S.verHistorialAlertas
-        ? "Ocultar las alertas de tareas ya realizadas"
-        : `Ver también ${ocultas} alerta${ocultas > 1 ? "s" : ""} de tareas ya realizadas`}</button></p>` : ""}
+        ? "Mostrar solo las vencidas"
+        : `Ver las otras ${ocultas} alerta${ocultas > 1 ? "s" : ""} (asignaciones, comentarios, próximas a vencer…)`}</button></p>` : ""}
       <div class="card ajustes">
         <h2>Recordatorio de vencimientos</h2>
         <label style="margin:0">Avisarme de las tareas que tengo asignadas
