@@ -237,6 +237,15 @@
   // Cada 5 minutos se recargan los datos: así una tarea pasa a "vencida" a su hora
   // aunque nadie toque nada (y se recupera cualquier cambio en vivo que se haya perdido).
   setInterval(() => { if (S.yo?.active && document.visibilityState === "visible") programarRecarga(); }, 5 * 60 * 1000);
+  // Cada minuto se recalcula qué está vencido (con la hora), sin pedir datos al servidor.
+  setInterval(() => {
+    if (!S.yo?.active) return;
+    actualizarBadges();
+    const ruta = location.hash.replace(/^#\//, "").split(/[/?]/)[0] || "inicio";
+    const activo = document.activeElement;
+    const escribiendo = activo && /INPUT|TEXTAREA|SELECT/.test(activo.tagName);
+    if (!escribiendo && !$("#modal").open && ["alertas", "inicio", "todas", "mias"].includes(ruta)) router(true);
+  }, 60 * 1000);
   function programarRecarga() {
     clearTimeout(recargaTimer);
     recargaTimer = setTimeout(async () => {
@@ -251,7 +260,7 @@
   function actualizarBadges() {
     const mias = S.tareas.filter((t) => t.assigned_to === S.yo?.id && t.status !== "realizado").length;
     $("#badge-mias").textContent = mias || "";
-    const sinLeer = S.alertas.filter((a) => !a.read_at && alertaPendiente(a)).length;
+    const sinLeer = recordatoriosVencidos().length;
     $("#badge-alertas").textContent = sinLeer || "";
     $("#badge-alertas-menu").textContent = sinLeer || "";
     document.title = (sinLeer ? `(${sinLeer}) ` : "") + "Gestión de Tareas";
@@ -863,13 +872,14 @@
     return `<li>${textoEvento(e)} — <a href="#/tarea/${e.task_id}">${esc(t ? t.title : "#" + e.task_id)}</a><div class="cuando">${fFechaHora(e.created_at)}</div></li>`;
   }
 
-  // ---------- Alertas ----------
-  // Se muestran solo las alertas de "venció" cuya tarea sigue abierta y sigue vencida.
-  const alertaPendiente = (a) => {
-    if (a.kind !== "vencida") return false;
-    const t = S.tareas.find((x) => x.id === a.task_id);
-    return !!t && vencimiento(t) === "vencida";
-  };
+  // ---------- Alertas: recordatorios vencidos ----------
+  // Una tarea aparece acá cuando llega su fecha/hora límite y no está realizada.
+  // Si se reprograma, desaparece y vuelve a aparecer sola cuando llega la nueva hora.
+  // Son mías: las que tengo asignadas, o las que creé yo y no tienen responsable.
+  const esMia = (t) => t.assigned_to === S.yo.id || (!t.assigned_to && t.created_by === S.yo.id);
+  const recordatoriosVencidos = () => S.tareas
+    .filter((t) => esMia(t) && vencimiento(t) === "vencida")
+    .sort((a, b) => (a.due_date + (a.due_time || "00:00")).localeCompare(b.due_date + (b.due_time || "00:00")));
   const iconoAlerta = { asignada: "👤", comentario: "💬", realizada: "✅", por_vencer: "⏰", vencida: "⚠️" };
 
   async function marcarLeidas(ids) {
@@ -881,46 +891,83 @@
     if (error) toast(errorMsg(error), true);
   }
 
+  // Calcula la nueva fecha/hora local para las opciones rápidas de "Reprogramar"
+  function calcularReprogramacion(opcion, t) {
+    const d = new Date();
+    const hm = (x) => String(x.getHours()).padStart(2, "0") + ":" + String(x.getMinutes()).padStart(2, "0");
+    const iso = (x) => { const y = new Date(x); y.setMinutes(y.getMinutes() - y.getTimezoneOffset()); return y.toISOString().slice(0, 10); };
+    if (opcion === "1h") { d.setHours(d.getHours() + 1); return { due_date: iso(d), due_time: hm(d) }; }
+    if (opcion === "3h") { d.setHours(d.getHours() + 3); return { due_date: iso(d), due_time: hm(d) }; }
+    const hora = (t.due_time || "09:00").slice(0, 5);
+    if (opcion === "manana") { d.setDate(d.getDate() + 1); return { due_date: iso(d), due_time: "09:00" }; }
+    if (opcion === "3d") { d.setDate(d.getDate() + 3); return { due_date: iso(d), due_time: hora }; }
+    if (opcion === "7d") { d.setDate(d.getDate() + 7); return { due_date: iso(d), due_time: hora }; }
+    return null;
+  }
+
   function vistaAlertas() {
-    const pendientes = S.alertas.filter(alertaPendiente);
-    const ocultas = S.alertas.length - pendientes.length;
-    const visibles = S.verHistorialAlertas ? S.alertas : pendientes;
-    const sinLeer = visibles.filter((a) => !a.read_at);
+    const vencidas = recordatoriosVencidos();
+    const avisosSinLeer = S.alertas.filter((a) => !a.read_at);
     $("#contenido").innerHTML = `
       <div class="titulo-fila">
-        <h1>Alertas${S.verHistorialAlertas ? "" : " · Vencidas"}</h1>
-        ${sinLeer.length ? '<button class="btn sm" id="al-todas">Marcar todas como leídas</button>' : ""}
+        <h1>Recordatorios vencidos</h1>
       </div>
-      <div class="lista" id="al-lista">
-        ${visibles.map((a) => `
-          <div class="alerta ${a.read_at ? "leida" : ""} ${alertaPendiente(a) ? "" : "cerrada"} k-${a.kind}" data-id="${a.id}" data-task="${a.task_id ?? ""}">
-            <span class="ico">${iconoAlerta[a.kind] || "🔔"}</span>
-            <div>
-              <div class="msg">${esc(a.message)}</div>
-              <div class="cuando">${fFechaHora(a.created_at)}${a.actor ? " · " + esc(nombre(a.actor)) : ""}</div>
-            </div>
-            ${a.read_at ? "" : '<span class="punto" title="Sin leer"></span>'}
-          </div>`).join("") || `<div class="vacio">${S.verHistorialAlertas ? "No tenés alertas." : "No tenés tareas vencidas. 👌"}</div>`}
-      </div>
-      ${ocultas ? `<p class="meta" style="margin-top:10px"><button class="link" id="al-historial">${S.verHistorialAlertas
-        ? "Mostrar solo las vencidas"
-        : `Ver las otras ${ocultas} alerta${ocultas > 1 ? "s" : ""} (asignaciones, comentarios, próximas a vencer…)`}</button></p>` : ""}
+      <p class="meta" style="margin:-8px 0 14px">Tareas tuyas cuya fecha y hora límite ya pasó. Terminala o reprogramala: si la pasás para más adelante, desaparece y vuelve a aparecer cuando llegue la nueva hora.</p>
+      <div class="lista" id="al-lista"></div>
+      <p class="meta" style="margin-top:14px"><button class="link" id="al-historial">${S.verHistorialAlertas ? "Ocultar avisos" : `Ver avisos (asignaciones, comentarios…)${avisosSinLeer.length ? ` · ${avisosSinLeer.length} sin leer` : ""}`}</button></p>
+      <div id="al-avisos"></div>
       <div class="card ajustes">
-        <h2>Recordatorio de vencimientos</h2>
-        <label style="margin:0">Avisarme de las tareas que tengo asignadas
+        <h2>Aviso previo</h2>
+        <label style="margin:0">Avisarme antes de que venzan las tareas que tengo asignadas
           <select id="al-dias" style="max-width:260px">
             ${[[0, "el mismo día que vencen"], [1, "1 día antes"], [2, "2 días antes"], [3, "3 días antes"], [5, "5 días antes"], [7, "7 días antes"]]
               .map(([v, l]) => `<option value="${v}" ${S.yo.remind_days === v ? "selected" : ""}>${l}</option>`).join("")}
           </select>
         </label>
-        <p class="meta">Si la tarea vence y sigue abierta, también te llega una alerta de "vencida". Cada aviso llega una sola vez.</p>
       </div>`;
-    $("#al-historial")?.addEventListener("click", () => { S.verHistorialAlertas = !S.verHistorialAlertas; vistaAlertas(); });
-    $("#al-todas")?.addEventListener("click", async () => { await marcarLeidas(sinLeer.map((a) => a.id)); vistaAlertas(); });
-    document.querySelectorAll(".alerta").forEach((el) => el.addEventListener("click", async () => {
-      await marcarLeidas([Number(el.dataset.id)]);
-      if (el.dataset.task) abrirTarea(Number(el.dataset.task)); else vistaAlertas();
-    }));
+
+    // Lista de vencidas, con el mismo formato que el resto de la app + "Reprogramar"
+    const cont = $("#al-lista");
+    pintarLista(cont, vencidas, "No tenés recordatorios vencidos. 👌");
+    cont.querySelectorAll(".tarea").forEach((el) => {
+      const id = Number(el.dataset.id);
+      const sel = document.createElement("select");
+      sel.className = "reprogramar"; sel.title = "Reprogramar";
+      sel.innerHTML = `<option value="">⏰ Reprogramar…</option><option value="1h">En 1 hora</option><option value="3h">En 3 horas</option>
+        <option value="manana">Mañana 9:00</option><option value="3d">En 3 días</option><option value="7d">En 1 semana</option><option value="otra">Otra fecha…</option>`;
+      el.querySelector(".lado").prepend(sel);
+      sel.addEventListener("click", (ev) => ev.stopPropagation());
+      sel.addEventListener("change", async () => {
+        const t = S.tareas.find((x) => x.id === id);
+        if (sel.value === "otra") { sel.value = ""; abrirTarea(id); return; }
+        const cambio = calcularReprogramacion(sel.value, t);
+        if (!cambio) return;
+        const { error } = await sb.from("tasks").update(cambio).eq("id", id);
+        if (error) { toast(errorMsg(error), true); sel.value = ""; return; }
+        Object.assign(t, cambio);
+        toast(`Reprogramada para el ${fFecha(cambio.due_date)} a las ${cambio.due_time}`);
+        actualizarBadges(); vistaAlertas();
+      });
+    });
+
+    // Avisos guardados (historial), a pedido
+    if (S.verHistorialAlertas) {
+      $("#al-avisos").innerHTML = `
+        ${avisosSinLeer.length ? '<div class="acciones" style="justify-content:flex-start;margin:0 0 8px"><button class="btn sm" id="al-todas">Marcar avisos como leídos</button></div>' : ""}
+        <div class="lista">${S.alertas.map((a) => `
+          <div class="alerta ${a.read_at ? "leida" : ""} k-${a.kind}" data-id="${a.id}" data-task="${a.task_id ?? ""}">
+            <span class="ico">${iconoAlerta[a.kind] || "🔔"}</span>
+            <div><div class="msg">${esc(a.message)}</div>
+              <div class="cuando">${fFechaHora(a.created_at)}${a.actor ? " · " + esc(nombre(a.actor)) : ""}</div></div>
+            ${a.read_at ? "" : '<span class="punto" title="Sin leer"></span>'}
+          </div>`).join("") || '<div class="vacio">No hay avisos.</div>'}</div>`;
+      $("#al-todas")?.addEventListener("click", async () => { await marcarLeidas(avisosSinLeer.map((a) => a.id)); vistaAlertas(); });
+      document.querySelectorAll("#al-avisos .alerta").forEach((el) => el.addEventListener("click", async () => {
+        await marcarLeidas([Number(el.dataset.id)]);
+        if (el.dataset.task) abrirTarea(Number(el.dataset.task)); else vistaAlertas();
+      }));
+    }
+    $("#al-historial").addEventListener("click", () => { S.verHistorialAlertas = !S.verHistorialAlertas; vistaAlertas(); });
     $("#al-dias").addEventListener("change", async (ev) => {
       const dias = Number(ev.target.value);
       const { error } = await sb.from("profiles").update({ remind_days: dias }).eq("id", S.yo.id);
