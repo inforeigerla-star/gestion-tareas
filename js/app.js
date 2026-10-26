@@ -251,7 +251,7 @@
   function actualizarBadges() {
     const mias = S.tareas.filter((t) => t.assigned_to === S.yo?.id && t.status !== "realizado").length;
     $("#badge-mias").textContent = mias || "";
-    const sinLeer = S.alertas.filter((a) => !a.read_at).length;
+    const sinLeer = S.alertas.filter((a) => !a.read_at && alertaPendiente(a)).length;
     $("#badge-alertas").textContent = sinLeer || "";
     $("#badge-alertas-menu").textContent = sinLeer || "";
     document.title = (sinLeer ? `(${sinLeer}) ` : "") + "Gestión de Tareas";
@@ -864,6 +864,7 @@
   }
 
   // ---------- Alertas ----------
+  const alertaPendiente = (a) => { const t = S.tareas.find((x) => x.id === a.task_id); return !!t && t.status !== "realizado"; };
   const iconoAlerta = { asignada: "👤", comentario: "💬", realizada: "✅", por_vencer: "⏰", vencida: "⚠️" };
 
   async function marcarLeidas(ids) {
@@ -876,23 +877,29 @@
   }
 
   function vistaAlertas() {
-    const sinLeer = S.alertas.filter((a) => !a.read_at);
+    const pendientes = S.alertas.filter(alertaPendiente);
+    const ocultas = S.alertas.length - pendientes.length;
+    const visibles = S.verHistorialAlertas ? S.alertas : pendientes;
+    const sinLeer = visibles.filter((a) => !a.read_at);
     $("#contenido").innerHTML = `
       <div class="titulo-fila">
         <h1>Alertas</h1>
         ${sinLeer.length ? '<button class="btn sm" id="al-todas">Marcar todas como leídas</button>' : ""}
       </div>
       <div class="lista" id="al-lista">
-        ${S.alertas.map((a) => `
-          <div class="alerta ${a.read_at ? "leida" : ""} k-${a.kind}" data-id="${a.id}" data-task="${a.task_id ?? ""}">
+        ${visibles.map((a) => `
+          <div class="alerta ${a.read_at ? "leida" : ""} ${alertaPendiente(a) ? "" : "cerrada"} k-${a.kind}" data-id="${a.id}" data-task="${a.task_id ?? ""}">
             <span class="ico">${iconoAlerta[a.kind] || "🔔"}</span>
             <div>
               <div class="msg">${esc(a.message)}</div>
               <div class="cuando">${fFechaHora(a.created_at)}${a.actor ? " · " + esc(nombre(a.actor)) : ""}</div>
             </div>
             ${a.read_at ? "" : '<span class="punto" title="Sin leer"></span>'}
-          </div>`).join("") || '<div class="vacio">No tenés alertas. Te vamos a avisar acá cuando te asignen una tarea, comenten en una tuya o algo esté por vencer.</div>'}
+          </div>`).join("") || `<div class="vacio">${S.verHistorialAlertas ? "No tenés alertas." : "No tenés nada pendiente. 👌 Te vamos a avisar acá cuando te asignen una tarea, comenten en una tuya o algo esté por vencer."}</div>`}
       </div>
+      ${ocultas ? `<p class="meta" style="margin-top:10px"><button class="link" id="al-historial">${S.verHistorialAlertas
+        ? "Ocultar las alertas de tareas ya realizadas"
+        : `Ver también ${ocultas} alerta${ocultas > 1 ? "s" : ""} de tareas ya realizadas`}</button></p>` : ""}
       <div class="card ajustes">
         <h2>Recordatorio de vencimientos</h2>
         <label style="margin:0">Avisarme de las tareas que tengo asignadas
@@ -903,6 +910,7 @@
         </label>
         <p class="meta">Si la tarea vence y sigue abierta, también te llega una alerta de "vencida". Cada aviso llega una sola vez.</p>
       </div>`;
+    $("#al-historial")?.addEventListener("click", () => { S.verHistorialAlertas = !S.verHistorialAlertas; vistaAlertas(); });
     $("#al-todas")?.addEventListener("click", async () => { await marcarLeidas(sinLeer.map((a) => a.id)); vistaAlertas(); });
     document.querySelectorAll(".alerta").forEach((el) => el.addEventListener("click", async () => {
       await marcarLeidas([Number(el.dataset.id)]);

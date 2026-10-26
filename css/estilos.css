@@ -248,3 +248,5 @@ form.arrastrando { outline: 2px dashed var(--accent); outline-offset: 4px; backg
 @media (hover: none) { .editar-titulo { opacity: .6; } }
 .input-titulo { font-weight: 600; padding: 4px 8px; }
 .tarea.resaltada { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); transition: box-shadow .3s; }
+.alerta.cerrada { opacity: .5; }
+.alerta.cerrada .msg { text-decoration: line-through; }
